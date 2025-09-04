@@ -1,4 +1,3 @@
-
 group = "com.gucci"
 version = "1.0-SNAPSHOT"
 
@@ -67,32 +66,32 @@ tasks.register<Test>("smokeTest") {
     useJUnitPlatform {
         includeTags("Smoke")
     }
-tasks.test {
-    useJUnitPlatform()
+    tasks.test {
+        useJUnitPlatform()
 
-    // читаем параметры, которые передаём из Jenkins как -P...
-    val includeTagsProp  = (project.findProperty("tags") as String?)?.trim()
-    val excludeTagsProp  = (project.findProperty("excludeTags") as String?)?.trim()
-    val browserProp      = (project.findProperty("browser") as String?) ?: "chrome"
-    val headlessProp     = (project.findProperty("headless") as String?) ?: "true"
+        // читаем параметры, которые передаём из Jenkins как -P...
+        val includeTagsProp = (project.findProperty("tags") as String?)?.trim()
+        val excludeTagsProp = (project.findProperty("excludeTags") as String?)?.trim()
+        val browserProp = (project.findProperty("browser") as String?) ?: "chrome"
+        val headlessProp = (project.findProperty("headless") as String?) ?: "true"
 
-    // JUnit5: фильтрация по тегам
-    if (!includeTagsProp.isNullOrBlank() || !excludeTagsProp.isNullOrBlank()) {
-        useJUnitPlatform {
-            if (!includeTagsProp.isNullOrBlank())
-                includeTags(*includeTagsProp.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toTypedArray())
-            if (!excludeTagsProp.isNullOrBlank())
-                excludeTags(*excludeTagsProp.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toTypedArray())
+        // JUnit5: фильтрация по тегам
+        if (!includeTagsProp.isNullOrBlank() || !excludeTagsProp.isNullOrBlank()) {
+            useJUnitPlatform {
+                if (!includeTagsProp.isNullOrBlank())
+                    includeTags(*includeTagsProp.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toTypedArray())
+                if (!excludeTagsProp.isNullOrBlank())
+                    excludeTags(*excludeTagsProp.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toTypedArray())
+            }
+        }
+
+        // Selenide конфиги через системные свойства
+        systemProperty("selenide.browser", browserProp)    // chrome, firefox, edge...
+        systemProperty("selenide.headless", headlessProp)  // "true" / "false"
+
+        testLogging {
+            events("passed", "skipped", "failed")
+            exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
         }
     }
-
-    // Selenide конфиги через системные свойства
-    systemProperty("selenide.browser", browserProp)    // chrome, firefox, edge...
-    systemProperty("selenide.headless", headlessProp)  // "true" / "false"
-
-    testLogging {
-        events("passed", "skipped", "failed")
-        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
-    }
-}
 }
