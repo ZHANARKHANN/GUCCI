@@ -1,97 +1,39 @@
-group = "com.gucci"
-version = "1.0-SNAPSHOT"
-
-tasks.withType<JavaCompile>().configureEach {
-    options.encoding = "UTF-8"
-}
 plugins {
-    id("java")
-    id("io.freefair.lombok") version "8.4"
-    id("io.qameta.allure") version "2.12.0"
-    id("org.gradle.test-retry") version "1.6.2"
+    java
 }
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
-    }
-}
-allure {
-    report {
-        version.set("2.29.0")
-    }
-    adapter {
-        autoconfigure.set(true)
-        aspectjWeaver.set(true)
-        frameworks {
-            junit5 {
-                adapterVersion.set("2.29.0")
-            }
-        }
-    }
-}
-repositories {
-    mavenCentral()
-}
-val allureVersion = "2.29.0"
-val ownerVersion = "1.0.9"
-val jacksonVersion = "2.17.0"
-val assertjVersion = "3.22.0"
-val lombokVersion = "1.18.30"
-val slf4jVersion = "2.0.16"
-val selenideVersion = "7.8.1"
+
+repositories { mavenCentral() }
+
 dependencies {
-    implementation("org.aspectj:aspectjtools:1.9.22")
-    implementation("org.aspectj:aspectjweaver:1.9.22")
-    implementation("com.codeborne:selenide:$selenideVersion")
-    implementation("com.codeborne:selenide-selenoid:$selenideVersion")
-    implementation("org.projectlombok:lombok:$lombokVersion")
-    implementation("io.github.bonigarcia:webdrivermanager:6.1.0")
-    testImplementation("io.qameta.allure:allure-selenide:$allureVersion")
-    implementation("org.assertj:assertj-core:$assertjVersion")
-    implementation(platform("org.junit:junit-bom:5.10.0"))
-    implementation("org.junit.jupiter:junit-jupiter")
-    implementation("io.qameta.allure:allure-junit5:$allureVersion")
-    implementation("net.datafaker:datafaker:2.2.2")
-    implementation("org.aeonbits.owner:owner:$ownerVersion")
-    compileOnly("org.projectlombok:lombok:$lombokVersion")
-    annotationProcessor("org.projectlombok:lombok:$lombokVersion")
+    testImplementation(platform("org.junit:junit-bom:5.10.2"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("com.codeborne:selenide:7.4.2")
+    // при желании: логирование
+    testRuntimeOnly("org.slf4j:slf4j-simple:2.0.13")
 }
+
 tasks.test {
     useJUnitPlatform()
-}
-// Отдельная задача для запуска только тестов с @Tag("Smoke")
-tasks.register<Test>("smokeTest") {
-    group = "verification"
-    description = "Runs tests tagged with @Tag(\"Smoke\")"
-    useJUnitPlatform {
-        includeTags("Smoke")
+
+    val includeTagsProp  = (project.findProperty("tags") as String?)?.trim()
+    val excludeTagsProp  = (project.findProperty("excludeTags") as String?)?.trim()
+    val browserProp      = (project.findProperty("browser") as String?) ?: "chrome"
+    val headlessProp     = (project.findProperty("headless") as String?) ?: "true"
+
+    if (!includeTagsProp.isNullOrBlank() || !excludeTagsProp.isNullOrBlank()) {
+        useJUnitPlatform {
+            if (!includeTagsProp.isNullOrBlank())
+                includeTags(*includeTagsProp.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toTypedArray())
+            if (!excludeTagsProp.isNullOrBlank())
+                excludeTags(*excludeTagsProp.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toTypedArray())
+        }
     }
-    tasks.test {
-        useJUnitPlatform()
 
-        // читаем параметры, которые передаём из Jenkins как -P...
-        val includeTagsProp = (project.findProperty("tags") as String?)?.trim()
-        val excludeTagsProp = (project.findProperty("excludeTags") as String?)?.trim()
-        val browserProp = (project.findProperty("browser") as String?) ?: "chrome"
-        val headlessProp = (project.findProperty("headless") as String?) ?: "true"
+    systemProperty("selenide.browser",  browserProp)
+    systemProperty("selenide.headless", headlessProp)
 
-        // JUnit5: фильтрация по тегам
-        if (!includeTagsProp.isNullOrBlank() || !excludeTagsProp.isNullOrBlank()) {
-            useJUnitPlatform {
-                if (!includeTagsProp.isNullOrBlank())
-                    includeTags(*includeTagsProp.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toTypedArray())
-                if (!excludeTagsProp.isNullOrBlank())
-                    excludeTags(*excludeTagsProp.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toTypedArray())
-            }
-        }
-
-        // Selenide конфиги через системные свойства
-        systemProperty("selenide.browser", browserProp)    // chrome, firefox, edge...
-        systemProperty("selenide.headless", headlessProp)  // "true" / "false"
-
-        testLogging {
-            events("passed", "skipped", "failed")
-            exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
-        }
+    testLogging {
+        events("passed","skipped","failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
 }

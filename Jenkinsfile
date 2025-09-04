@@ -1,10 +1,10 @@
 pipeline {
   agent any
-  options { timestamps() }  // ansiColor убрали
+  options { timestamps() }
 
   parameters {
-    string(name: 'TAGS', defaultValue: '', description: 'JUnit @Tag через запятую: smoke | ui,regression')
-    string(name: 'EXCLUDE_TAGS', defaultValue: '', description: 'Исключить теги: slow')
+    string(name: 'TAGS',         defaultValue: '', description: 'JUnit @Tag: smoke | ui,regression')
+    string(name: 'EXCLUDE_TAGS', defaultValue: '', description: 'Исключить теги, напр. slow')
     choice(name: 'BROWSER', choices: ['chrome','firefox','edge'], description: 'Selenide браузер')
     booleanParam(name: 'HEADLESS', defaultValue: true, description: 'Запуск в headless')
   }
@@ -14,25 +14,28 @@ pipeline {
   }
 
   stages {
-    stage('Checkout') {
+    stage('Prep Gradle') {
       steps {
-        git branch: 'zhanarkhan', url: 'https://github.com/ZHANARKHANN/GUCCI.git'
+        sh 'chmod +x ./gradlew || true'
+        sh './gradlew --version --no-daemon'
       }
     }
 
     stage('Build (no tests)') {
-      steps { sh './gradlew clean classes -x test --no-daemon' }
+      steps {
+        sh './gradlew clean classes -x test --no-daemon'
+      }
     }
 
     stage('Test') {
       steps {
         script {
-          def cmd = ["./gradlew", "test", "--no-daemon"]
-          if (params.TAGS?.trim())         cmd << "-Ptags=${params.TAGS.trim()}"
-          if (params.EXCLUDE_TAGS?.trim()) cmd << "-PexcludeTags=${params.EXCLUDE_TAGS.trim()}"
-          if (params.BROWSER?.trim())      cmd << "-Pbrowser=${params.BROWSER.trim()}"
-          cmd << "-Pheadless=${params.HEADLESS ? 'true' : 'false'}"
-          sh cmd.join(' ')
+          def args = []
+          if (params.TAGS?.trim())         args << "-Ptags=${params.TAGS.trim()}"
+          if (params.EXCLUDE_TAGS?.trim()) args << "-PexcludeTags=${params.EXCLUDE_TAGS.trim()}"
+          args << "-Pbrowser=${params.BROWSER}"
+          args << "-Pheadless=${params.HEADLESS ? 'true' : 'false'}"
+          sh "./gradlew test --no-daemon ${args.join(' ')}"
         }
       }
       post {
